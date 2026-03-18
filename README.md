@@ -37,6 +37,13 @@ Yout entry point will be
 OPENSSL_CONF=openssl.conf python main.py
 ```
 
+You can use the following script to download a specific 114-2 for example (`.env`'s "YEAR=114", "SEM=2")
+
+```bash
+OPENSSL_CONF=openssl.conf python main.py --course --fast --teacher --rate --result --db 1142.db
+```
+
+
 ## License
 
 ### Software License

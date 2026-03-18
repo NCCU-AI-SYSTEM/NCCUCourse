@@ -10,7 +10,7 @@ class User:
   def __init__(self) -> None:
     self._username = USERNAME
     self._password = PASSWORD
-    res = requests.get(get_login_url(self._username, self._password))
+    res = requests.post(get_login_url(self._username, self._password))
     res = res.json()
     print(res)
     try:
@@ -27,5 +27,5 @@ class User:
     if(deleteres[0]["procid"] != "9"): raise Exception("Delete fail: " + courseId)
     
   def getTrack(self):
-    courseres = requests.get(get_track_url(self._token)).json()
+    courseres = requests.post(get_track_url(self._token)).json()
     return courseres
