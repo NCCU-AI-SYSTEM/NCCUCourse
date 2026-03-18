@@ -70,7 +70,7 @@ Fetches course enrollment results from local CSV files.
 |--------|---------|
 | **Data Source** | Local CSV files in `./data/` (NOT an API) |
 | **Semesters Affected** | `COURSERESULT_YEARSEM` = `["1102", "1111", "1112", "1121"]` (`len(COURSERESULT_YEARSEM)` = 4)<br>**Does NOT include current semester (1142)!** |
-| **CSV Files** | `./data/1102CourseResult.csv`<br>`./data/1111CourseResult.csv`<br>`./data/1112CourseResult.csv`<br>`./data/1121CourseResult.csv` |
+| **CSV Files Required** | `./data/1102CourseResult.csv`<br>`./data/1111CourseResult.csv`<br>`./data/1112CourseResult.csv`<br>`./data/1121CourseResult.csv`<br><br>**NOTE:** These CSV files MUST exist in `./data/` directory for `--result` to work. The code reads from local files, not an API. |
 | **API Called** | `https://es.nccu.edu.tw/course/zh-TW/:sem={sem}%20{courseid}%20/` (to enrich CSV data) |
 | **Database Table** | `RESULT` |
 | **Data Stored** | Semester, course ID, course name, teacher, time, capacity, enrolled count, last enrollment |
