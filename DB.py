@@ -57,6 +57,11 @@ class DB:
         noteEn TEXT,
         syllabus TEXT,
         objective TEXT,
+        schedule TEXT,
+        evaluation TEXT,
+        textbook TEXT,
+        teaching_approach TEXT,
+        ai_policy TEXT,
         PRIMARY KEY ( id, dp1, dp2, dp3 )
       );
     """)
@@ -90,7 +95,7 @@ class DB:
     
     return res
   
-  def addCourse(self, courseData: dict, courseDataEn: dict, dp1: str, dp2: str, dp3: str, syllabus: str, description: str):
+  def addCourse(self, courseData: dict, courseDataEn: dict, dp1: str, dp2: str, dp3: str, syllabus: str, description: str, schedule: str = "", evaluation: str = "", textbook: str = "", teaching_approach: str = "", ai_policy: str = ""):
     if courseData["subKind"] == "必修":
       kind = 1
     elif courseData["subKind"] == "選修":
@@ -104,8 +109,8 @@ class DB:
         
     cur = self.con.cursor()
     cur.execute(
-      '''INSERT OR REPLACE INTO COURSE ( id, y, s,  subNum, name, nameEn, teacher, teacherEn, kind, time, timeEn, lmtKind, lmtKindEn, core, lang, langEn, smtQty, classroom, classroomId, unit, unitEn, dp1, dp2, dp3, point, subRemainUrl, subSetUrl, subUnitRuleUrl, teaExpUrl, teaSchmUrl, tranTpe, tranTpeEn, info, infoEn, note, noteEn, syllabus, objective ) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);''',
+      '''INSERT OR REPLACE INTO COURSE ( id, y, s,  subNum, name, nameEn, teacher, teacherEn, kind, time, timeEn, lmtKind, lmtKindEn, core, lang, langEn, smtQty, classroom, classroomId, unit, unitEn, dp1, dp2, dp3, point, subRemainUrl, subSetUrl, subUnitRuleUrl, teaExpUrl, teaSchmUrl, tranTpe, tranTpeEn, info, infoEn, note, noteEn, syllabus, objective, schedule, evaluation, textbook, teaching_approach, ai_policy )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);''',
       (
         "{}{}{}".format(courseData["y"], courseData["s"], courseData["subNum"]),
         courseData["y"],
@@ -143,7 +148,8 @@ class DB:
         courseDataEn["info"],
         courseData["note"],
         courseDataEn["note"],
-        syllabus, description
+        syllabus, description,
+        schedule, evaluation, textbook, teaching_approach, ai_policy
       )
     )
     self.con.commit()
