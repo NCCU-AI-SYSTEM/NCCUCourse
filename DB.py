@@ -35,7 +35,7 @@ class DB:
         core INTEGER,
         lang TEXT,
         langEn TEXT,
-        smtQty INTEGER,
+        smtQty TEXT,
         classroom TEXT,
         classroomId TEXT,
         unit TEXT,
