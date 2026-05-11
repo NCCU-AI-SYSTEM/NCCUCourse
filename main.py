@@ -37,7 +37,7 @@ allSemesters = [
     "1131",
     "1132",
     "1141",
-    "1142"
+    "1142",
 ]
 
 dirPath = os.path.dirname(os.path.realpath(__file__))
@@ -134,6 +134,11 @@ if __name__ == "__main__":
                             category["dp3"],
                             "".join(detail["description"]),
                             "".join(detail["objectives"]),
+                            detail["schedule"],
+                            detail["evaluation"],
+                            detail["textbook"],
+                            detail["teaching_approach"],
+                            detail["ai_policy"],
                         )
                 except Exception as e:
                     logging.error(e)
@@ -212,9 +217,7 @@ if __name__ == "__main__":
                     )
                     res.raise_for_status()
                     sleep(0.2)
-                    soup = BeautifulSoup(
-                        res.content.decode("big5").encode("utf-8"), "html.parser"
-                    )
+                    soup = BeautifulSoup(res.content, "html.parser")
                     rows = soup.find_all("tr")
                     for row in [
                         x.find_all("td")
@@ -278,9 +281,7 @@ if __name__ == "__main__":
                     )
                     res = requests.get(location)
                     res.raise_for_status()
-                    soup = BeautifulSoup(
-                        res.content.decode("big5").encode("utf-8"), "html.parser"
-                    )
+                    soup = BeautifulSoup(res.content, "html.parser")
                     courses = soup.find("table", {"border": "1"}).find_all("tr")
                     availableCourses = [
                         x.find_all("td")

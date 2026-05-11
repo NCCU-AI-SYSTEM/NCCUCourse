@@ -12,13 +12,11 @@ def get_login_url(username, password):
     print((username, password))
     return PERSON_API + username + "!!)" + password + "/"
 
-def get_addtrack_url(encstu, courseid):
-    source = "aNgu1ar%!" + courseid + "!%ASjjLInGH:lkjhdsa"
-    return TRACE_API + "C/zh-TW/3" + str(des_ecb_encode(source, KEY)) + "-" + encstu + "/"
+def get_addtrack_url(encstu, courseid, priority="1"):
+    return TRACE_API + "C/zh-TW/" + priority + courseid + "-" + encstu + "/"
 
 def get_deltrack_url(encstu, courseid):
-    source = "aNgu1ar%!" + courseid + "!%ASjjLInGH:lkjhdsa"
-    return TRACE_API + "D/zh-TW/" + str(des_ecb_encode(source, KEY)) + "-" + encstu + "/"
+    return TRACE_API + "D/zh-TW/" + courseid + "-" + encstu + "/"
 
 def get_track_url(encstu):
     return TRACE_API + "zh-TW/" + encstu + "/"

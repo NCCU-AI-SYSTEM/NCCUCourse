@@ -6,7 +6,7 @@ class User:
   _username: str
   _password: str
   _token: str
-  
+
   def __init__(self) -> None:
     self._username = USERNAME
     self._password = PASSWORD
@@ -20,10 +20,13 @@ class User:
   
   def addTrack(self, courseId: str):
     addres = requests.post(get_addtrack_url(self._token, courseId)).json()
-    if(addres[0]["procid"] != "1"): raise Exception("Add fail: " + courseId)
+    if addres[0]["procid"] == "3":
+      addres = requests.post(get_addtrack_url(self._token, courseId, priority="3")).json()
+    if addres[0]["procid"] != "1":
+      raise Exception("Add fail: " + courseId + " " + addres[0].get("procmsg", ""))
   
   def deleteTrack(self, courseId: str):
-    deleteres = requests.delete(get_deltrack_url(self._token, courseId)).json()
+    deleteres = requests.post(get_deltrack_url(self._token, courseId)).json()
     if(deleteres[0]["procid"] != "9"): raise Exception("Delete fail: " + courseId)
     
   def getTrack(self):
