@@ -10,8 +10,7 @@ def des_ecb_encode(source, key):
 
 def get_login_url(username, password):
     print((username, password))
-    source = "aNgu1ar%!" + username + "X_X" + password + "!%ASjjLInGH:lkjhdsa:)_l0OK"
-    return PERSON_API + str(des_ecb_encode(source, KEY)) + "/"
+    return PERSON_API + username + "!!)" + password + "/"
 
 def get_addtrack_url(encstu, courseid):
     source = "aNgu1ar%!" + courseid + "!%ASjjLInGH:lkjhdsa"

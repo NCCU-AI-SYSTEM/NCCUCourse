@@ -35,6 +35,9 @@ allSemesters = [
     "1121",
     "1122",
     "1131",
+    "1132",
+    "1141",
+    "1142"
 ]
 
 dirPath = os.path.dirname(os.path.realpath(__file__))
