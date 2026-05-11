@@ -1,0 +1,17 @@
+name: nccu_course-dev
+services:
+  nccucourse:
+    environment:
+      - PROJECT_PATH=/project/NCCUCourse
+      # prevents python creating .pyc files at runtime
+      # - PYTHONDONTWRITEBYTECODE=1
+      # compile python dependencies into .pyc files
+      # - UV_COMPILE_BYTECODE=1
+      - PYTHONDEVMODE=1
+    build:
+      context: .
+      target: dev
+      args:
+        - PROJECT_PATH=/project/NCCUCourse
+    volumes:
+      - .:/project/NCCUCourse:rw,cached
