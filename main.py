@@ -106,11 +106,7 @@ if __name__ == "__main__":
                             category["dp3"],
                             "".join(detail["description"]),
                             "".join(detail["objectives"]),
-                            detail["schedule"],
-                            detail["evaluation"],
-                            detail["textbook"],
-                            detail["teaching_approach"],
-                            detail["ai_policy"],
+                            detail["sections"],
                         )
                 except Exception as e:
                     logging.error(e)
