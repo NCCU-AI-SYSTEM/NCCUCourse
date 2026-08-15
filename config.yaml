@@ -1,0 +1,103 @@
+# Semester settings for the crawler. Credentials stay in .env.
+#
+# Three blocks, because they answer three different questions:
+#
+#   target  - which ONE semester am I working on          (a filter / URL part / filename)
+#   crawl   - which semesters can the API serve            (a loop bound)
+#   remain  - which semester do scraped enrolment numbers belong to
+#
+# They are not alternatives to each other. A normal run crawls a range (crawl)
+# while operating on one semester (target).
+#
+# NOT here on purpose: the CSV and PDF semester lists that used to live in
+# constant.py and import_pe_ge_results.py. Those are inventories of files in
+# data/, so config.py derives them by scanning that directory
+# (course_result_semesters() / pe_ge_semesters()). They can then never disagree
+# with what is actually on disk.
+
+
+# ── target ───────────────────────────────────────────────────────────────────
+# The semester you are working on. Mostly used as a *filter* and as a piece of
+# URLs and filenames - only one line of main.py ties it to the crawl loop.
+#
+# Read by : config.YEAR / config.SEM / config.YEAR_SEM / config.DEFAULT_DB
+# Used by :
+#   constant.py URL(), COURSE_RATE_URL()   default semester in teaschm page URLs
+#   main.py --teacher                      getThisSemesterCourse(YEAR, SEM) picks
+#                                          which courses to add to iNCCU tracking
+#   main.py --course                       `if semester == YEAR_SEM` decides which
+#                                          pass fills coursesList  <- the only line
+#                                          coupling target to `crawl`
+#   main.py --fast                         the single semester to crawl
+#   backfill_syllabus.py                   "WHERE y=? AND s=?"  which rows to repair
+#   fetch_remain.py                        "WHERE y=? AND s=?"  which courses to scrape
+#   config.DEFAULT_DB                      default --db filename, e.g. 1142.db
+#
+# Must be one of `crawl.semesters` - config.py raises on load if it is not,
+# because otherwise a full --course run collects nothing and reports no error.
+target:
+  year: "114"
+  semester: "2"
+
+
+# ── crawl ────────────────────────────────────────────────────────────────────
+# How far back the NCCU course API serves. This is a property of the remote API,
+# not a preference: shorten it to crawl less history.
+#
+# Read by : config.CRAWL_SEMESTERS  (main.py `allSemesters`)
+# Used by :
+#   main.py --course     every semester in this list, unless --fast
+#   main.py --teacher    every teacher x every semester in this list
+#
+# Cost: --teacher is O(teachers x semesters). Each entry added here is one more
+# full pass over every teacher.
+crawl:
+  semesters:
+    - "1011"
+    - "1012"
+    - "1021"
+    - "1022"
+    - "1031"
+    - "1032"
+    - "1041"
+    - "1042"
+    - "1051"
+    - "1052"
+    - "1061"
+    - "1062"
+    - "1071"
+    - "1072"
+    - "1081"
+    - "1082"
+    - "1091"
+    - "1092"
+    - "1101"
+    - "1102"
+    - "1111"
+    - "1112"
+    - "1121"
+    - "1122"
+    - "1131"
+    - "1132"
+    - "1141"
+    - "1142"
+
+
+# ── remain ───────────────────────────────────────────────────────────────────
+# Which semester the scraped enrolment numbers get filed under.
+#
+# Separate from `target` because the 選課餘額 pages only ever show *current*
+# numbers - there is no historical version to fetch - so the semester the data
+# belongs to is a statement about the data, not about what you are crawling.
+#
+# Read by : config.REMAIN_SEMESTER
+# Used by :
+#   fetch_remain.py   the `yearsem` written into RESULT, and the "already
+#                     fetched" check that makes the script resumable
+#
+# Keep this equal to `target` unless you are deliberately filing numbers under a
+# different semester: fetch_remain.py selects courses by `target` but labels the
+# rows it writes with this value, so a mismatch files one semester's courses
+# under another.
+remain:
+  semester: "1142"

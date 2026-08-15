@@ -4,41 +4,13 @@ import os, json, logging, tqdm, requests, datetime, argparse, csv
 from DB import DB
 
 from User import User
+import config
 from constant import YEAR_SEM, YEAR, SEM, COURSERESULT_CSV, COURSERESULT_YEARSEM
 from fetchDescription import fetchDescription
 from fetchRate import fetchRate
 # from translateRate import translateRate
 
-allSemesters = [
-    "1011",
-    "1012",
-    "1021",
-    "1022",
-    "1031",
-    "1032",
-    "1041",
-    "1042",
-    "1051",
-    "1052",
-    "1061",
-    "1062",
-    "1071",
-    "1072",
-    "1081",
-    "1082",
-    "1091",
-    "1092",
-    "1101",
-    "1102",
-    "1111",
-    "1112",
-    "1121",
-    "1122",
-    "1131",
-    "1132",
-    "1141",
-    "1142",
-]
+allSemesters = config.CRAWL_SEMESTERS
 
 dirPath = os.path.dirname(os.path.realpath(__file__))
 
@@ -98,7 +70,7 @@ if __name__ == "__main__":
         for category in tqdmCategories:
             tqdmCategories.set_postfix_str("{}".format(category))
             if args.fast:
-                semesters = allSemesters[-1:]
+                semesters = [YEAR_SEM]
             else:
                 semesters = tqdm.tqdm(allSemesters, leave=False)
             for semester in semesters:

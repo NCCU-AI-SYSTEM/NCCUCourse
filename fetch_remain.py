@@ -1,6 +1,8 @@
 """Fetch 1142 course enrollment results from subRemainUrl pages."""
 
 import sqlite3
+
+import config
 import sys
 import time
 
@@ -41,15 +43,21 @@ def parse_remain_page(html: str) -> dict | None:
 
 
 def main() -> None:
-    db_path = sys.argv[1] if len(sys.argv) > 1 else "1142.db"
+    db_path = sys.argv[1] if len(sys.argv) > 1 else config.DEFAULT_DB
     conn = sqlite3.connect(db_path)
 
     rows = conn.execute(
         "SELECT DISTINCT id, subRemainUrl, name, teacher, time "
-        "FROM COURSE WHERE y='114' AND s='2' AND subRemainUrl IS NOT NULL AND subRemainUrl != ''"
+        "FROM COURSE WHERE y=? AND s=? AND subRemainUrl IS NOT NULL AND subRemainUrl != ''",
+        (config.YEAR, config.SEM),
     ).fetchall()
 
-    existing = {r[0] for r in conn.execute("SELECT courseId FROM RESULT WHERE yearsem='1142'").fetchall()}
+    existing = {
+        r[0]
+        for r in conn.execute(
+            "SELECT courseId FROM RESULT WHERE yearsem=?", (config.REMAIN_SEMESTER,)
+        ).fetchall()
+    }
 
     to_fetch = [(r[0], r[1], r[2], r[3], r[4]) for r in rows if r[0] not in existing]
     print(f"Total: {len(rows)}, Already exists: {len(existing)}, To fetch: {len(to_fetch)}")
@@ -69,7 +77,7 @@ def main() -> None:
                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         course_id,
-                        "1142",
+                        config.REMAIN_SEMESTER,
                         info.get("name", name),
                         info.get("teacher", teacher),
                         info.get("time", course_time),

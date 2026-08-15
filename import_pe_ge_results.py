@@ -6,7 +6,9 @@ import sys
 import pdfplumber
 
 
-SEMESTERS = ["1122", "1131", "1132", "1141"]
+import config
+
+SEMESTERS = config.pe_ge_semesters()
 
 
 def parse_pdf(path: str) -> list[dict]:
@@ -45,7 +47,7 @@ def parse_pdf(path: str) -> list[dict]:
 
 
 def main() -> None:
-    db_path = sys.argv[1] if len(sys.argv) > 1 else "1142.db"
+    db_path = sys.argv[1] if len(sys.argv) > 1 else config.DEFAULT_DB
     conn = sqlite3.connect(db_path)
 
     total_inserted = 0

@@ -15,12 +15,20 @@ As a NCCU student, you have your iNCCU account. Please create a `.env` file and 
 STUDENTID=*********
 STUDENTPWD=*****
 
-YEAR=111
-SEM=2
-
 GOOGLE_APPLICATION_CREDENTIALS=.google.auth
 OPENSSL_CONF=openssl.conf
 ```
+
+Semester settings are in `config.yaml`, not `.env`. Set the semester you want to crawl:
+
+```yaml
+target:
+  year: "114"
+  semester: "2"
+```
+
+Each section in that file says which code reads it. The CSV/PDF semester lists are
+derived from `data/`, so adding a file is enough — no config change needed.
 
 If your google credential is store else where, please modify `.env` file.
 Be aware of your credential when using git!!

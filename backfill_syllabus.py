@@ -1,6 +1,8 @@
 """Backfill schedule/evaluation/textbook/teaching_approach/ai_policy for existing 1142 courses."""
 
 import sqlite3
+
+import config
 import sys
 import time
 
@@ -10,14 +12,15 @@ from fetchDescription import fetchDescription
 
 
 def main() -> None:
-    db_path = sys.argv[1] if len(sys.argv) > 1 else "1142.db"
+    db_path = sys.argv[1] if len(sys.argv) > 1 else config.DEFAULT_DB
     conn = sqlite3.connect(db_path)
 
     rows = conn.execute(
         "SELECT DISTINCT id FROM COURSE "
-        "WHERE y='114' AND s='2' "
+        "WHERE y=? AND s=? "
         "AND (schedule IS NULL OR schedule = '') "
-        "AND teaSchmUrl IS NOT NULL AND teaSchmUrl != ''"
+        "AND teaSchmUrl IS NOT NULL AND teaSchmUrl != ''",
+        (config.YEAR, config.SEM),
     ).fetchall()
 
     print(f"Courses to backfill: {len(rows)}")

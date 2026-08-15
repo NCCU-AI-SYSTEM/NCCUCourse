@@ -156,7 +156,7 @@ class DB:
   
   def getCourse(self, y: str, s: str):
     cur = self.con.cursor()
-    request = cur.execute('SELECT teaNam FROM COURSE WHERE y = 111 AND s = 2')
+    request = cur.execute('SELECT teacher FROM COURSE WHERE y = ? AND s = ?', [y, s])
     response = request.fetchall()
     
     return [str(x[0]) for x in response]

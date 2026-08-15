@@ -1,10 +1,12 @@
 import os
 from dotenv import load_dotenv
 
+import config
+
 load_dotenv()
 
-YEAR = os.getenv("YEAR") or ""
-SEM = os.getenv("SEM") or ""
+YEAR = config.YEAR
+SEM = config.SEM
 USERNAME = os.getenv("STUDENTID") or ""
 PASSWORD = os.getenv("STUDENTPWD") or ""
 
@@ -37,7 +39,7 @@ def RATE_QRY():
     return str(os.getenv("RATE_QRY")).split(",")
 
 
-COURSERESULT_YEARSEM = ["1102", "1111", "1112", "1121"]
+COURSERESULT_YEARSEM = config.course_result_semesters()
 
 def COURSERESULT_CSV(sem):
     return sem + "CourseResult.csv"
