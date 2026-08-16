@@ -1,18 +1,24 @@
-import csv, requests, os, json
+import csv, os, json
+
+import fetcher
 from tqdm import tqdm
-from constant import COURSERESULT_CSV, COURSERESULT_YEARSEM
+from constant import COURSERESULT_YEARSEM
+import config
 import shutil
 
 def main():
   for sem in COURSERESULT_YEARSEM:
     i = 0
-    row_count = sum(1 for line in open("./data/" + COURSERESULT_CSV(sem), 'r'))
-    with open("./data/" + COURSERESULT_CSV(sem), 'r') as f:
+    csvPath = config.course_result_csv(sem)
+    # utf-8-sig: three of the exports carry a BOM that would otherwise end up
+    # inside the first row's course id.
+    row_count = sum(1 for line in open(csvPath, 'r', encoding='utf-8-sig'))
+    with open(csvPath, 'r', encoding='utf-8-sig') as f:
       reader = tqdm(csv.reader(f), total=row_count)
       for row in reader:
         courseid = str(row[0])
         try:
-          res = requests.get("https://es.nccu.edu.tw/course/zh-TW/:sem=" + sem + "%20" + str(courseid) + "%20/").json()
+          res = fetcher.get("https://es.nccu.edu.tw/course/zh-TW/:sem=" + sem + "%20" + str(courseid) + "%20/").json()
           result = dict({
             "yearsem": sem,
             "time": res[0]["subTime"],

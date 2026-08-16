@@ -6,8 +6,9 @@ import config
 import sys
 import time
 
-import requests
 from bs4 import BeautifulSoup
+
+import fetcher
 from tqdm import tqdm
 
 
@@ -68,7 +69,7 @@ def main() -> None:
     for course_id, url, name, teacher, course_time in tqdm(to_fetch, desc="Fetching remain"):
         try:
             time.sleep(0.15)
-            res = requests.get(url, timeout=15)
+            res = fetcher.get(url, timeout=15)
             res.raise_for_status()
             info = parse_remain_page(res.text)
             if info:

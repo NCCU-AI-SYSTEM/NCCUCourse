@@ -1,8 +1,9 @@
 from bs4 import BeautifulSoup
-import requests
+
+import fetcher
 
 def fetchRate(url: str):
-  res = requests.get(url.replace("https://", "http://"))
+  res = fetcher.get(url.replace("https://", "http://"))
   res.raise_for_status()
   soup = BeautifulSoup(res.content, "html.parser")
   rates = soup.find('table', {"border": "1"}).find_all('tr')

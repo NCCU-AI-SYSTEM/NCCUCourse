@@ -40,6 +40,3 @@ def RATE_QRY():
 
 
 COURSERESULT_YEARSEM = config.course_result_semesters()
-
-def COURSERESULT_CSV(sem):
-    return sem + "CourseResult.csv"

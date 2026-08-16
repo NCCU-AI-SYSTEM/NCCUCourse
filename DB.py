@@ -122,6 +122,9 @@ class DB:
     
     return res
   
+  # dp1/dp2/dp3 are "" for courses recovered from the official course list, which
+  # carries no unit codes. Not NULL: they are part of the primary key, and
+  # PostgreSQL drops the whole key if any of its columns contains one.
   def addCourse(self, courseData: dict, courseDataEn: dict, dp1: str, dp2: str, dp3: str, syllabus: str, description: str, sections: dict[str, str] | None = None):
     if courseData["subKind"] == "必修":
       kind = 1

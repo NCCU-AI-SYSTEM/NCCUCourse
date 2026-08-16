@@ -9,6 +9,7 @@ import pdfplumber
 import config
 
 SEMESTERS = config.pe_ge_semesters()
+SUBNUM_LENGTH = 9
 
 
 def parse_pdf(path: str) -> list[dict]:
@@ -19,11 +20,13 @@ def parse_pdf(path: str) -> list[dict]:
             if not table:
                 continue
             for row in table:
-                if not row or not row[0] or not row[0][0].isdigit():
-                    continue
-                if len(row) < 6:
+                if not row or not row[0] or len(row) < 6:
                     continue
                 course_code = row[0].strip()
+                # Titles and footnotes also start with a digit, so length is what
+                # separates them from a course code. Codes may contain letters.
+                if len(course_code) != SUBNUM_LENGTH or not course_code.isalnum():
+                    continue
                 name = row[1].strip() if row[1] else ""
                 time_str = row[2].strip() if row[2] else ""
                 try:
@@ -54,7 +57,7 @@ def main() -> None:
     total_skipped = 0
 
     for sem in SEMESTERS:
-        pdf_path = f"data/{sem}_pe_ge.pdf"
+        pdf_path = config.pe_ge_pdf(sem)
         try:
             courses = parse_pdf(pdf_path)
         except FileNotFoundError:

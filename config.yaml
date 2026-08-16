@@ -9,11 +9,18 @@
 # They are not alternatives to each other. A normal run crawls a range (crawl)
 # while operating on one semester (target).
 #
-# NOT here on purpose: the CSV and PDF semester lists that used to live in
-# constant.py and import_pe_ge_results.py. Those are inventories of files in
-# data/, so config.py derives them by scanning that directory
-# (course_result_semesters() / pe_ge_semesters()). They can then never disagree
-# with what is actually on disk.
+# NOT here on purpose: the three semester lists below. They are inventories of
+# files on disk, not settings, so config.py derives them by scanning and they can
+# never disagree with what is actually there.
+#
+#   course_list_semesters()    data/course_list/<sem>.ods
+#                              registrar's published course list, used after the
+#                              category scan to recover courses that belong to no
+#                              unit in unit.json (main.py reconcile step)
+#   course_result_semesters()  data/course_result/<sem>CourseResult.csv
+#                              read by main.py --result and fetchResult.py
+#   pe_ge_semesters()          data/course_result/<sem>_pe_ge.pdf
+#                              read by import_pe_ge_results.py
 
 
 # ── target ───────────────────────────────────────────────────────────────────
@@ -29,15 +36,17 @@
 #                                          pass fills coursesList  <- the only line
 #                                          coupling target to `crawl`
 #   main.py --fast                         the single semester to crawl
+#   main.py reconcile                      course_list_path(YEAR_SEM) picks which
+#                                          data/course_list/<sem>.ods to check against
 #   backfill_syllabus.py                   "WHERE y=? AND s=?"  which rows to repair
 #   fetch_remain.py                        "WHERE y=? AND s=?"  which courses to scrape
-#   config.DEFAULT_DB                      default --db filename, e.g. 1142.db
+#   config.DEFAULT_DB                      default --db filename, e.g. 1151.db
 #
 # Must be one of `crawl.semesters` - config.py raises on load if it is not,
 # because otherwise a full --course run collects nothing and reports no error.
 target:
-  year: "114"
-  semester: "2"
+  year: "115"
+  semester: "1"
 
 
 # ── crawl ────────────────────────────────────────────────────────────────────
@@ -81,6 +90,7 @@ crawl:
     - "1132"
     - "1141"
     - "1142"
+    - "1151"
 
 
 # ── remain ───────────────────────────────────────────────────────────────────
@@ -100,4 +110,4 @@ crawl:
 # rows it writes with this value, so a mismatch files one semester's courses
 # under another.
 remain:
-  semester: "1142"
+  semester: "1151"

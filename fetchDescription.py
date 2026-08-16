@@ -1,5 +1,7 @@
 from bs4 import BeautifulSoup
-import re, requests, logging, unicodedata
+import re, logging, unicodedata
+
+import fetcher
 
 # English headings that already have a column; everything else gets columnName().
 SECTION_COLUMNS = {
@@ -63,19 +65,19 @@ def fetchDescription(courseId: str):
   }
 
   try:
-    response = requests.get("http://es.nccu.edu.tw/course/zh-TW/{} /".format(courseId))
+    response = fetcher.get("http://es.nccu.edu.tw/course/zh-TW/{} /".format(courseId))
     response.raise_for_status()
     if len(response.json()) != 1:
       raise Exception("No matched course")
     result["qrysub"] = response.json()[0]
-    response = requests.get("http://es.nccu.edu.tw/course/en/{} /".format(courseId))
+    response = fetcher.get("http://es.nccu.edu.tw/course/en/{} /".format(courseId))
     response.raise_for_status()
     if len(response.json()) != 1:
       raise Exception("No matched course")
     result["qrysubEn"] = response.json()[0]
     location = str(result["qrysub"]["teaSchmUrl"]).replace("https://", "http://")
 
-    res = requests.get(location)
+    res = fetcher.get(location)
     soap = BeautifulSoup(res.content, "html.parser")
     isOld = soap.find("title").text == "教師資訊整合系統"
 
