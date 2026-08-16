@@ -16,6 +16,9 @@ SECTION_COLUMNS = {
 
 CHART_BLOCK = {"row", "sylview-mtop", "fa-border"}
 
+# teaSchmUrl for a course with no syllabus page of its own.
+EMPTY_SYLLABUS = "emptyforqry.htm"
+
 # Prefixed so a heading can never slug onto a fixed column such as info or teacher.
 def columnName(heading: str):
   name = unicodedata.normalize("NFKD", heading).replace("&", " and ")
@@ -76,6 +79,13 @@ def fetchDescription(courseId: str):
       raise Exception("No matched course")
     result["qrysubEn"] = response.json()[0]
     location = str(result["qrysub"]["teaSchmUrl"]).replace("https://", "http://")
+
+    # NCCU points courses with no published syllabus at a shared placeholder
+    # rather than leaving teaSchmUrl empty. Fetching it yields an empty parse
+    # that looks exactly like a failed one, which is what made backfill retry
+    # these forever. About 4% of rows across all semesters.
+    if location.endswith(EMPTY_SYLLABUS):
+      return result
 
     res = fetcher.get(location)
     soap = BeautifulSoup(res.content, "html.parser")

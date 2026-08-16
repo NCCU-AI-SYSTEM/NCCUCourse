@@ -7,7 +7,7 @@ import time
 from tqdm import tqdm
 
 from DB import DB
-from fetchDescription import SECTION_COLUMNS, fetchDescription
+from fetchDescription import EMPTY_SYLLABUS, SECTION_COLUMNS, fetchDescription
 
 
 def main() -> None:
@@ -19,11 +19,14 @@ def main() -> None:
     db.ensureCourseColumns(SECTION_COLUMNS.values())
 
     rows = conn.execute(
+        # Courses pointed at the shared placeholder have no syllabus to fetch,
+        # so retrying them can only ever fail.
         "SELECT DISTINCT id FROM COURSE "
         "WHERE y=? AND s=? "
         "AND (schedule IS NULL OR schedule = '') "
-        "AND teaSchmUrl IS NOT NULL AND teaSchmUrl != ''",
-        (config.YEAR, config.SEM),
+        "AND teaSchmUrl IS NOT NULL AND teaSchmUrl != '' "
+        "AND teaSchmUrl NOT LIKE '%' || ? || '%'",
+        (config.YEAR, config.SEM, EMPTY_SYLLABUS),
     ).fetchall()
 
     print(f"Courses to backfill: {len(rows)}")

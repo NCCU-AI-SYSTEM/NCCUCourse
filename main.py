@@ -9,7 +9,7 @@ from User import User
 import config
 from constant import YEAR_SEM, YEAR, SEM, COURSERESULT_YEARSEM
 from courseList import readCourseList
-from fetchDescription import fetchDescription
+from fetchDescription import EMPTY_SYLLABUS, fetchDescription
 from fetchRate import fetchRate
 # from translateRate import translateRate
 
@@ -186,6 +186,15 @@ if __name__ == "__main__":
                 except Exception as e:
                     logging.error("{}: {}".format(subNum, e))
             print("Recovered {} of {}".format(recovered, len(missing)))
+
+        # Distinct from a failed fetch: NCCU has no syllabus page for these.
+        noSyllabus = db.con.execute(
+            "SELECT COUNT(DISTINCT id) FROM COURSE WHERE y=? AND s=? "
+            "AND teaSchmUrl LIKE ?",
+            (YEAR, SEM, "%" + EMPTY_SYLLABUS + "%"),
+        ).fetchone()[0]
+        if noSyllabus:
+            print("{} courses have no syllabus page at NCCU".format(noSyllabus))
 
         print("Fetch Class done at {}".format(datetime.datetime.now()))
     else:
