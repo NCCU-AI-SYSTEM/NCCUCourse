@@ -1,23 +1,32 @@
-"""Backfill schedule/evaluation/textbook/teaching_approach/ai_policy for existing 1142 courses."""
+"""Backfill syllabus sections for courses that were crawled without them."""
 
-import sqlite3
+import config
 import sys
 import time
 
 from tqdm import tqdm
 
-from fetchDescription import fetchDescription
+from DB import DB
+from fetchDescription import EMPTY_SYLLABUS, SECTION_COLUMNS, fetchDescription
 
 
 def main() -> None:
-    db_path = sys.argv[1] if len(sys.argv) > 1 else "1142.db"
-    conn = sqlite3.connect(db_path)
+    db_path = sys.argv[1] if len(sys.argv) > 1 else config.DEFAULT_DB
+    db = DB(db_path)
+    conn = db.con
+
+    # Databases predating the syllabus fields lack the columns queried below.
+    db.ensureCourseColumns(SECTION_COLUMNS.values())
 
     rows = conn.execute(
+        # Courses pointed at the shared placeholder have no syllabus to fetch,
+        # so retrying them can only ever fail.
         "SELECT DISTINCT id FROM COURSE "
-        "WHERE y='114' AND s='2' "
+        "WHERE y=? AND s=? "
         "AND (schedule IS NULL OR schedule = '') "
-        "AND teaSchmUrl IS NOT NULL AND teaSchmUrl != ''"
+        "AND teaSchmUrl IS NOT NULL AND teaSchmUrl != '' "
+        "AND teaSchmUrl NOT LIKE '%' || ? || '%'",
+        (config.YEAR, config.SEM, EMPTY_SYLLABUS),
     ).fetchall()
 
     print(f"Courses to backfill: {len(rows)}")
@@ -29,20 +38,16 @@ def main() -> None:
         try:
             time.sleep(0.15)
             detail = fetchDescription(course_id)
+            sections = {k: v for k, v in detail["sections"].items() if v}
 
-            if any([detail["schedule"], detail["evaluation"], detail["textbook"],
-                    detail["teaching_approach"], detail["ai_policy"]]):
+            if sections:
+                db.ensureCourseColumns(sections.keys())
+                columns = list(sections.keys())
                 conn.execute(
-                    "UPDATE COURSE SET schedule=?, evaluation=?, textbook=?, "
-                    "teaching_approach=?, ai_policy=? WHERE id=?",
-                    (
-                        detail["schedule"],
-                        detail["evaluation"],
-                        detail["textbook"],
-                        detail["teaching_approach"],
-                        detail["ai_policy"],
-                        course_id,
+                    "UPDATE COURSE SET {} WHERE id=?".format(
+                        ", ".join('"{}"=?'.format(x) for x in columns)
                     ),
+                    [sections[x] for x in columns] + [course_id],
                 )
                 conn.commit()
                 success += 1

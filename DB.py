@@ -1,10 +1,16 @@
+import re
 import sqlite3
+
+# Column names reach SQL by interpolation, so they are checked here rather than
+# trusting whatever produced them.
+COLUMN_NAME = re.compile(r'^[a-z][a-z0-9_]*$')
 
 class DB:
   con: sqlite3.Connection
-  
+
   def __init__(self, location: str) -> None:
     self.con = sqlite3.connect(location)
+    self.courseColumns = None
     cur = self.con.cursor()
     # subNam => name 科目名稱
     # lmtKind 通識類別
@@ -69,6 +75,27 @@ class DB:
     cur.execute("CREATE TABLE IF NOT EXISTS RATE ( courseId TEXT NOT NULL, rowId TEXT NOT NULL, teacherId TEXT, content TEXT, contentEn TEXT, PRIMARY KEY (courseId, rowId) )")
     cur.execute("CREATE TABLE IF NOT EXISTS RESULT ( courseId TEXT, yearsem TEXT, name TEXT, teacher TEXT, time TEXT, studentLimit INTEGER, studentCount INTEGER, lastEnroll INTEGER, PRIMARY KEY (courseId))")
     
+  # CREATE TABLE IF NOT EXISTS never alters an existing table, so syllabus
+  # sections added by NCCU after a database was created need this.
+  def ensureCourseColumns(self, columns):
+    for column in columns:
+      if not COLUMN_NAME.match(column):
+        raise ValueError("unsafe column name: {!r}".format(column))
+
+    if self.courseColumns is None:
+      cur = self.con.cursor()
+      self.courseColumns = {x[1] for x in cur.execute("PRAGMA table_info(COURSE)")}
+
+    missing = [x for x in columns if x not in self.courseColumns]
+    if not missing:
+      return
+
+    cur = self.con.cursor()
+    for column in missing:
+      cur.execute('ALTER TABLE COURSE ADD COLUMN "{}" TEXT'.format(column))
+      self.courseColumns.add(column)
+    self.con.commit()
+
   def addRate(self, rowId: str, courseId: str, teacherId: str, content: str, contentEn: str):
     cur = self.con.cursor()
     cur.execute("INSERT OR REPLACE INTO RATE (rowId, courseId, teacherId, content, contentEn) VALUES (?, ?, ?, ?, ?)", (rowId, courseId, teacherId, content, contentEn))
@@ -95,7 +122,10 @@ class DB:
     
     return res
   
-  def addCourse(self, courseData: dict, courseDataEn: dict, dp1: str, dp2: str, dp3: str, syllabus: str, description: str, schedule: str = "", evaluation: str = "", textbook: str = "", teaching_approach: str = "", ai_policy: str = ""):
+  # dp1/dp2/dp3 are "" for courses recovered from the official course list, which
+  # carries no unit codes. Not NULL: they are part of the primary key, and
+  # PostgreSQL drops the whole key if any of its columns contains one.
+  def addCourse(self, courseData: dict, courseDataEn: dict, dp1: str, dp2: str, dp3: str, syllabus: str, description: str, sections: dict[str, str] | None = None):
     if courseData["subKind"] == "必修":
       kind = 1
     elif courseData["subKind"] == "選修":
@@ -107,56 +137,63 @@ class DB:
     else:
       kind = 0
         
+    values = {
+      "id": "{}{}{}".format(courseData["y"], courseData["s"], courseData["subNum"]),
+      "y": courseData["y"],
+      "s": courseData["s"],
+      "subNum": courseData["subNum"],
+      "name": courseData["subNam"],
+      "nameEn": courseDataEn["subNam"],
+      "teacher": courseData["teaNam"],
+      "teacherEn": courseDataEn["teaNam"],
+      "kind": kind,
+      "time": courseData["subTime"],
+      "timeEn": courseDataEn["subTime"],
+      "lmtKind": courseData["lmtKind"],
+      "lmtKindEn": courseDataEn["lmtKind"],
+      "core": 1 if courseData["core"] == "是" else 0,
+      "lang": courseData["langTpe"],
+      "langEn": courseDataEn["langTpe"],
+      "smtQty": courseData["smtQty"],
+      "classroom": courseData["subClassroom"],
+      "classroomId": courseDataEn["subClassroom"],
+      "unit": courseData["subGde"],
+      "unitEn": courseDataEn["subGde"],
+      "dp1": dp1,
+      "dp2": dp2,
+      "dp3": dp3,
+      "point": float(courseData["subPoint"]),
+      "subRemainUrl": courseData["subRemainUrl"],
+      "subSetUrl": courseData["subSetUrl"],
+      "subUnitRuleUrl": courseData["subUnitRuleUrl"],
+      "teaExpUrl": courseData["teaExpUrl"],
+      "teaSchmUrl": courseData["teaSchmUrl"],
+      "tranTpe": courseData["tranTpe"],
+      "tranTpeEn": courseDataEn["tranTpe"],
+      "info": courseData["info"],
+      "infoEn": courseDataEn["info"],
+      "note": courseData["note"],
+      "noteEn": courseDataEn["note"],
+      "syllabus": syllabus,
+      "objective": description,
+    }
+    self.ensureCourseColumns(sections or {})
+    values.update(sections or {})
+    columns = list(values.keys())
+
     cur = self.con.cursor()
     cur.execute(
-      '''INSERT OR REPLACE INTO COURSE ( id, y, s,  subNum, name, nameEn, teacher, teacherEn, kind, time, timeEn, lmtKind, lmtKindEn, core, lang, langEn, smtQty, classroom, classroomId, unit, unitEn, dp1, dp2, dp3, point, subRemainUrl, subSetUrl, subUnitRuleUrl, teaExpUrl, teaSchmUrl, tranTpe, tranTpeEn, info, infoEn, note, noteEn, syllabus, objective, schedule, evaluation, textbook, teaching_approach, ai_policy )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);''',
-      (
-        "{}{}{}".format(courseData["y"], courseData["s"], courseData["subNum"]),
-        courseData["y"],
-        courseData["s"],
-        courseData["subNum"],
-        courseData["subNam"],
-        courseDataEn["subNam"],
-        courseData["teaNam"],
-        courseDataEn["teaNam"],
-        kind,
-        courseData["subTime"],
-        courseDataEn["subTime"],
-        courseData["lmtKind"],
-        courseDataEn["lmtKind"],
-        (lambda x:1 if x == "是" else 0)(courseData["core"]),
-        courseData["langTpe"],
-        courseDataEn["langTpe"],
-        courseData["smtQty"],
-        courseData["subClassroom"],
-        courseDataEn["subClassroom"],
-        courseData["subGde"],
-        courseDataEn["subGde"],
-        dp1,
-        dp2,
-        dp3,
-        float(courseData["subPoint"]),
-        courseData["subRemainUrl"],
-        courseData["subSetUrl"],
-        courseData["subUnitRuleUrl"],
-        courseData["teaExpUrl"],
-        courseData["teaSchmUrl"],
-        courseData["tranTpe"],
-        courseDataEn["tranTpe"],
-        courseData["info"],
-        courseDataEn["info"],
-        courseData["note"],
-        courseDataEn["note"],
-        syllabus, description,
-        schedule, evaluation, textbook, teaching_approach, ai_policy
-      )
+      'INSERT OR REPLACE INTO COURSE ( {} ) VALUES ( {} );'.format(
+        ", ".join('"{}"'.format(x) for x in columns),
+        ", ".join(["?"] * len(columns)),
+      ),
+      [values[x] for x in columns],
     )
     self.con.commit()
   
   def getCourse(self, y: str, s: str):
     cur = self.con.cursor()
-    request = cur.execute('SELECT teaNam FROM COURSE WHERE y = 111 AND s = 2')
+    request = cur.execute('SELECT teacher FROM COURSE WHERE y = ? AND s = ?', [y, s])
     response = request.fetchall()
     
     return [str(x[0]) for x in response]

@@ -1,44 +1,19 @@
 from bs4 import BeautifulSoup
 from time import sleep
-import os, json, logging, tqdm, requests, datetime, argparse, csv
+import os, json, logging, tqdm, datetime, argparse, csv
+
+import fetcher
 from DB import DB
 
 from User import User
-from constant import YEAR_SEM, YEAR, SEM, COURSERESULT_CSV, COURSERESULT_YEARSEM
-from fetchDescription import fetchDescription
+import config
+from constant import YEAR_SEM, YEAR, SEM, COURSERESULT_YEARSEM
+from courseList import readCourseList
+from fetchDescription import EMPTY_SYLLABUS, fetchDescription
 from fetchRate import fetchRate
 # from translateRate import translateRate
 
-allSemesters = [
-    "1011",
-    "1012",
-    "1021",
-    "1022",
-    "1031",
-    "1032",
-    "1041",
-    "1042",
-    "1051",
-    "1052",
-    "1061",
-    "1062",
-    "1071",
-    "1072",
-    "1081",
-    "1082",
-    "1091",
-    "1092",
-    "1101",
-    "1102",
-    "1111",
-    "1112",
-    "1121",
-    "1122",
-    "1131",
-    "1132",
-    "1141",
-    "1142",
-]
+allSemesters = config.CRAWL_SEMESTERS
 
 dirPath = os.path.dirname(os.path.realpath(__file__))
 
@@ -48,7 +23,7 @@ parser.add_argument("--fast", action="store_true", help="Fetch this semester onl
 parser.add_argument("--teacher", action="store_true", help="Fetch teacher")
 parser.add_argument("--rate", action="store_true", help="Fetch rate")
 parser.add_argument("--result", action="store_true", help="Fetch result")
-parser.add_argument("--db", help="Database name", default="test.db")
+parser.add_argument("--db", help="Database name", default=config.DEFAULT_DB)
 args = parser.parse_args()
 
 if __name__ == "__main__":
@@ -72,14 +47,19 @@ if __name__ == "__main__":
     if args.course:
         # fetch all deps first, make a single search less than 500
         try:
-            units = requests.get("https://qrysub.nccu.edu.tw/assets/api/unit.json")
+            units = fetcher.get("https://qrysub.nccu.edu.tw/assets/api/unit.json")
             units.raise_for_status()
             units = units.json()
         except Exception as e:
             logging.error("Failed to get unit list, falls back to local cache")
-            with open("data/unit.json") as f:
+            with open(os.path.join(config.DATA_DIR, "unit.json")) as f:
                 units = json.load(f)
             
+        # Narrowest first, then roll up: a course whose (dp1,dp2,dp3) is missing
+        # from unit.json cannot be reached at leaf level but shows up one level
+        # broader. "" means the level is left out of the query. Each step only
+        # takes courses no earlier step returned, so the dp columns record the
+        # narrowest category the course was actually found under.
         categories = list()
         for dp1 in [x for x in units if x["utCodL1"] != "0"]:
             for dp2 in [x for x in dp1["utL2"] if x["utCodL2"] != "0"]:
@@ -91,59 +71,130 @@ if __name__ == "__main__":
                             "dp3": dp3["utCodL3"],
                         }
                     )
+                categories.append({"dp1": dp1["utCodL1"], "dp2": dp2["utCodL2"], "dp3": ""})
+            categories.append({"dp1": dp1["utCodL1"], "dp2": "", "dp3": ""})
+        categories.append({"dp1": "", "dp2": "", "dp3": ""})
 
         # run through all deps, get their classId
         coursesList = list()
-        tqdmCategories = tqdm.tqdm(categories, leave=False)
-        for category in tqdmCategories:
-            tqdmCategories.set_postfix_str("{}".format(category))
-            if args.fast:
-                semesters = allSemesters[-1:]
-            else:
-                semesters = tqdm.tqdm(allSemesters, leave=False)
-            for semester in semesters:
-                if not args.fast:
-                    semesters.set_postfix_str("processing: {}".format(semester))
+        semesters = [YEAR_SEM] if args.fast else allSemesters
+        def alreadyCovered(stored, category):
+            """True if this course was stored under `category` or below it.
+
+            A course legitimately belongs to several categories, so a roll-up
+            only skips what one of its own descendants already recorded — a hit
+            in a different branch is a different membership and still counts.
+            """
+            for dp1, dp2, dp3 in stored:
+                if all(
+                    not category[level] or category[level] == found
+                    for level, found in (("dp1", dp1), ("dp2", dp2), ("dp3", dp3))
+                ):
+                    return True
+            return False
+
+        for semester in semesters:
+            # Per semester: a subNum means a different course in another one.
+            seen = dict()
+            tqdmCategories = tqdm.tqdm(categories, leave=False)
+            for category in tqdmCategories:
+                tqdmCategories.set_postfix_str("{} {}".format(semester, category))
                 try:
                     sleep(0.1)
-                    res = requests.get(
-                        "https://es.nccu.edu.tw/course/zh-TW/:sem={} :dp1={} :dp2={} :dp3={}".format(
-                            semester, category["dp1"], category["dp2"], category["dp3"]
-                        )
+                    query = " ".join(
+                        [":sem={}".format(semester)]
+                        + [
+                            ":{}={}".format(level, category[level])
+                            for level in ("dp1", "dp2", "dp3")
+                            if category[level]
+                        ]
                     )
+                    res = fetcher.get("https://es.nccu.edu.tw/course/zh-TW/" + query)
                     res.raise_for_status()
                     courses = res.json()
-                    if len(courses) >= 500:
+                    # A capped roll-up is expected — it asks for a whole college.
+                    # A capped leaf means unit.json no longer splits finely enough
+                    # for one query to return everything, and rows are being lost.
+                    if category["dp3"] and len(courses) >= 500:
                         raise Exception("{} too large".format(category))
 
-                    # Add to courseList
-                    if semester == YEAR_SEM:
-                        coursesList += [x["subNum"] for x in courses]
-
                     # Write to databse
-                    for course in tqdm.tqdm(courses, leave=False):
+                    fresh = [
+                        x for x in courses
+                        if not alreadyCovered(seen.get(x["subNum"], ()), category)
+                    ]
+                    for course in tqdm.tqdm(fresh, leave=False):
                         courseId = "{}{}".format(semester, course["subNum"])
-                        # if db.isCourseExist(courseId, category):
-                        #   continue
-                        detail = fetchDescription(courseId)
-                        db.addCourse(
-                            detail["qrysub"],
-                            detail["qrysubEn"],
-                            category["dp1"],
-                            category["dp2"],
-                            category["dp3"],
-                            "".join(detail["description"]),
-                            "".join(detail["objectives"]),
-                            detail["schedule"],
-                            detail["evaluation"],
-                            detail["textbook"],
-                            detail["teaching_approach"],
-                            detail["ai_policy"],
-                        )
+                        try:
+                            detail = fetchDescription(courseId)
+                            if not detail["qrysub"] or "qrysubEn" not in detail:
+                                continue
+                            db.addCourse(
+                                detail["qrysub"],
+                                detail["qrysubEn"],
+                                category["dp1"],
+                                category["dp2"],
+                                category["dp3"],
+                                "".join(detail["description"]),
+                                "".join(detail["objectives"]),
+                                detail["sections"],
+                            )
+                            # Only on success, so a broader query retries the rest.
+                            seen.setdefault(course["subNum"], []).append(
+                                (category["dp1"], category["dp2"], category["dp3"])
+                            )
+                            if semester == YEAR_SEM:
+                                coursesList.append(course["subNum"])
+                        except Exception as e:
+                            logging.error("{}: {}".format(courseId, e))
                 except Exception as e:
                     logging.error(e)
 
         logging.debug(coursesList)
+
+        # Courses filed under no unit in unit.json are unreachable by the loop
+        # above, so reconcile against the registrar's list when one is present.
+        listPath = config.course_list_path(YEAR_SEM)
+        if not listPath:
+            print("No course list for {}, skipping reconcile".format(YEAR_SEM))
+        else:
+            # What actually landed, not coursesList: that is filled from the API
+            # response before the write loop, so a course lost to a mid-category
+            # failure would still look fetched.
+            fetched = set(db.getThisSemesterCourse(YEAR, SEM))
+            missing = [x for x in readCourseList(listPath) if x not in fetched]
+            print("Course list: {} of {} not reached by the category scan".format(
+                len(missing), len(fetched) + len(missing)))
+            recovered = 0
+            for subNum in tqdm.tqdm(missing, leave=False, desc="Reconciling"):
+                try:
+                    sleep(0.1)
+                    detail = fetchDescription("{}{}".format(YEAR_SEM, subNum))
+                    if not detail["qrysub"] or "qrysubEn" not in detail:
+                        continue
+                    db.addCourse(
+                        detail["qrysub"],
+                        detail["qrysubEn"],
+                        "",
+                        "",
+                        "",
+                        "".join(detail["description"]),
+                        "".join(detail["objectives"]),
+                        detail["sections"],
+                    )
+                    recovered += 1
+                except Exception as e:
+                    logging.error("{}: {}".format(subNum, e))
+            print("Recovered {} of {}".format(recovered, len(missing)))
+
+        # Distinct from a failed fetch: NCCU has no syllabus page for these.
+        noSyllabus = db.con.execute(
+            "SELECT COUNT(DISTINCT id) FROM COURSE WHERE y=? AND s=? "
+            "AND teaSchmUrl LIKE ?",
+            (YEAR, SEM, "%" + EMPTY_SYLLABUS + "%"),
+        ).fetchone()[0]
+        if noSyllabus:
+            print("{} courses have no syllabus page at NCCU".format(noSyllabus))
 
         print("Fetch Class done at {}".format(datetime.datetime.now()))
     else:
@@ -209,7 +260,7 @@ if __name__ == "__main__":
                     "https://newdoc.nccu.edu.tw/teaschm/{}/set20.jsp".format(YEAR_SEM)
                 ):
                     # use ip to avoid name resolve error, and add time out
-                    res = requests.get(
+                    res = fetcher.get(
                         teacherStatUrl.replace(
                             "newdoc.nccu.edu.tw", "140.119.229.20"
                         ).replace("https://", "http://"),
@@ -279,7 +330,7 @@ if __name__ == "__main__":
                     location = "http://newdoc.nccu.edu.tw/teaschm/{}/statistic.jsp-tnum={}.htm".format(
                         semester, teacherId
                     )
-                    res = requests.get(location)
+                    res = fetcher.get(location)
                     res.raise_for_status()
                     soup = BeautifulSoup(res.content, "html.parser")
                     courses = soup.find("table", {"border": "1"}).find_all("tr")
@@ -327,8 +378,11 @@ if __name__ == "__main__":
     # ==============================
     if args.result:
         for sem in COURSERESULT_YEARSEM:
-            row_count = sum(1 for line in open("./data/" + COURSERESULT_CSV(sem), "r"))
-            with open("./data/" + COURSERESULT_CSV(sem), "r") as f:
+            csvPath = config.course_result_csv(sem)
+            # utf-8-sig: three of the exports carry a BOM that would otherwise
+            # end up inside the first row's course id.
+            row_count = sum(1 for line in open(csvPath, "r", encoding="utf-8-sig"))
+            with open(csvPath, "r", encoding="utf-8-sig") as f:
                 lines = [line for line in f]
                 i = 0
                 reader = tqdm.tqdm(csv.reader(lines), total=len(lines))
@@ -336,7 +390,7 @@ if __name__ == "__main__":
                     courseid = str(row[0])
                     try:
                         sleep(0.2)
-                        res = requests.get(
+                        res = fetcher.get(
                             "https://es.nccu.edu.tw/course/zh-TW/:sem="
                             + sem
                             + "%20"
