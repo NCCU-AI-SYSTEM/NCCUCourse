@@ -19,3 +19,8 @@ dependencies = [
     "urllib3>=2.2.2",
     "wheel>=0.43.0",
 ]
+
+[tool.pytest.ini_options]
+# Modules live at the repo root, not in a package.
+pythonpath = ["."]
+testpaths = ["tests"]
